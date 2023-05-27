@@ -86,11 +86,11 @@ def trainer(
 
     for epoch in range(epochs):
         train_loss = train(epoch, model, criterion, train_loader, optimizer, device)
-        val_loss = test(val_loader, model, criterion, device)
+        #val_loss = test(val_loader, model, criterion, device)
 
-        if val_loss < best_loss_val:
-            best_loss_val = val_loss
-            best_loss_train = train_loss
+        # if val_loss < best_loss_val:
+        #    best_loss_val = val_loss
+        #    best_loss_train = train_loss
 
     return model, best_loss_train, best_loss_val, learning_rate, momentum, weight_decay
 

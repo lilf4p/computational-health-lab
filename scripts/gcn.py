@@ -5,7 +5,7 @@ import torch_geometric.transforms as T
 import numpy as np
 
 from torch_geometric.nn import GCNConv, BatchNorm,  global_mean_pool
-from sklearn.metrics import accuracy_score
+from sklearn.metrics import accuracy_score, f1_score
 
 # define classifier
 ADD_FEATURES = 8
@@ -41,8 +41,16 @@ class EarlyStopping:
                 return True
 
 
-
+# actually the final model
 class GCN(nn.Module):
+    """Graph Convolutional Network
+    Args:
+        hidden_channels (int): number of hidden channels
+
+    Returns:
+        x (tensor): output of the model
+
+    """
     def __init__(self, hidden_channels) -> None:
         super(GCN, self).__init__()
         self.conv1 = GCNConv(1, hidden_channels)
@@ -53,6 +61,15 @@ class GCN(nn.Module):
         self.bn1 = BatchNorm(hidden_channels)
 
     def forward(self, data, edge_index, batch):
+        """Forward pass of the model
+        Args:
+            data (torch_geometric.data): data
+            edge_index (torch.tensor): edge index
+            batch (torch.tensor): batch
+            
+        Returns:
+            x (tensor): output of the model
+        """
         # sequential model
         x = data.x
         x = F.gelu(self.conv1(x, edge_index))
@@ -67,6 +84,15 @@ class GCN(nn.Module):
     
 
 def compute_accuracy(dataset, model: nn.Module, criterion):
+    """Compute accuracy of the model
+    Args:
+        dataset (torch_geometric.data): dataset
+        model (nn.Module): model
+        criterion (nn.Module): loss function
+    Returns:
+        accuracy (float): accuracy of the model
+    """
+
     model.eval()
     y_true = []
     y_pred = []
@@ -83,10 +109,20 @@ def compute_accuracy(dataset, model: nn.Module, criterion):
         y_pred.append(output)
         losses.append(loss.item())
     
-    return accuracy_score(y_true, y_pred), np.mean(losses)
+    return f1_score(y_true, y_pred), np.mean(losses)
 
 
 def train(epoch, model, criterion, optimizer, train_loader):
+    """Train the model
+    Args:
+        epoch (int): current epoch
+        model (nn.Module): model
+        criterion (nn.Module): loss function
+        optimizer (torch.optim): optimizer
+        train_loader (torch_geometric.data.DataLoader): train loader
+    Returns:
+        epoch_loss (float): loss of the current epoch        
+    """
     model.to(DEVICE)
     model.train()
     epoch_loss = 0
@@ -104,10 +140,33 @@ def train(epoch, model, criterion, optimizer, train_loader):
 
 # define test loop
 def test(loader, model, criterion):
+    """
+    Args:
+        loader (torch_geometric.data.DataLoader): loader
+        model (nn.Module): model
+        criterion (nn.Module): loss function
+    Returns:
+        accuracy (float): accuracy of the model
+    """
     return compute_accuracy(loader.dataset, model, criterion)
 
 
 def train_loop(model, criterion, optimizer, train_loader=None, val_loader=None, epochs=100, early_stopping=None, verbose=True, min_loss=None, min_acc=None):
+    """Train the model
+    Args:
+        model (nn.Module): model
+        criterion (nn.Module): loss function
+        optimizer (torch.optim): optimizer
+        train_loader (torch_geometric.data.DataLoader): train loader
+        val_loader (torch_geometric.data.DataLoader): validation loader
+        epochs (int): number of epochs
+        early_stopping (EarlyStopping): early stopping object
+        verbose (bool): print results
+        min_loss (float): minimum loss to stop training
+        min_acc (float): minimum accuracy to stop training
+    Returns:
+        epoch_loss (float): loss of the current epoch
+    """
     val_losses = []
     train_losses = []
 

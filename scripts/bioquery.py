@@ -77,7 +77,6 @@ def find_interactions(gene_list, api_key) -> pd.DataFrame:
     # adj matrix is a pandas dataframe with genes as rows and columns
     # if gene is present in deExpression, then add 1 to the corresponding cell
 
-    # create the df
     adj_matrix = pd.DataFrame(0, index=gene_list, columns=gene_list)
 
     for gene in gene_list:
