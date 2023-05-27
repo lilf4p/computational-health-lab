@@ -11,7 +11,7 @@ import itertools
 import multiprocessing as mp
 
 from sklearn.model_selection import train_test_split
-from sklearn.metrics import accuracy_score
+from sklearn.metrics import accuracy_score, f1_score
 from sklearn.preprocessing import MinMaxScaler
 
 
@@ -20,68 +20,30 @@ from torch_geometric.nn import GCNConv, global_mean_pool, BatchNorm
 ADD_FEATURES = 7
 STARTING_CHANNEL = 4
 
-
+# this is not the actual final model
 class GCN(nn.Module):
     def __init__(self, hidden_channels) -> None:
         super(GCN, self).__init__()
         torch.manual_seed(7477)
-        self.conv1 = GCNConv(1, hidden_channels)
-        self.conv2 = GCNConv(hidden_channels, hidden_channels*2)
-        self.conv3 = GCNConv(hidden_channels*2, hidden_channels*2*2)
-        self.conv4 = GCNConv(hidden_channels*2*2, hidden_channels*2*2*2)
+        self.conv1 = GCNConv(1, 256)
 
         self.lin1 = nn.Linear(self.conv4.out_channels + ADD_FEATURES, 128)
-        self.lin2 = nn.Linear(128, 64)
-        self.lin3 = nn.Linear(64, 32)
-        self.lin4 = nn.Linear(32, 2)
-        
+        self.lin2 = nn.Linear(32, 2)
         self.bn1 = BatchNorm(hidden_channels)
-        self.bn2 = BatchNorm(hidden_channels*2)
-        self.bn3 = BatchNorm(hidden_channels*2*2)
 
-        self.dropout = nn.Dropout(p=0.2)
 
     def forward(self, data, edge_index, batch):
         # sequential model
         x = data.x
         x = F.gelu(self.conv1(x, edge_index))
         x = self.bn1(x)
-        x = F.gelu(self.conv2(x, edge_index))
-        x = self.bn2(x)
-        x = F.gelu(self.conv3(x, edge_index))
-        x = self.bn3(x)
-        x = F.gelu(self.conv4(x, edge_index))
 
         x = global_mean_pool(x, batch) 
         # append data.y[1] at the end of x
         x = torch.cat((x, data.y[1]), 1)
-    
-        x = F.gelu(self.lin1(x))             # <-- x u features di pdata (sono 9)
-
-        x = F.gelu(self.lin2(x))
-        x = F.gelu(self.lin3(x))
-        x = F.sigmoid(self.lin4(x))
+        x = F.gelu(self.lin1(x))             # <-- x u features di pdata (sono 7)
+        x = F.sigmoid(self.lin2(x))
         return x
-
-
-def compute_accuracy(dataset, model, criterion, device='cpu'):
-    model.eval()
-    y_true = []
-    y_pred = []
-    losses = []
-    for data in dataset:
-        data = data.to(device)
-        y_true.append(torch.argmax(data.y[0]).item())
-    
-    for data in dataset:
-        data = data.to(device)
-        output = model(data, data.edge_index, data.batch)
-        loss = criterion(output, data.y[0])
-        output = torch.argmax(output).item()
-        y_pred.append(output)
-        losses.append(loss.item())
-    
-    return np.mean(losses)
 
 
 def train(epoch, model, criterion, train_data, optimizer, device='cpu'):
@@ -100,11 +62,6 @@ def train(epoch, model, criterion, train_data, optimizer, device='cpu'):
 
     #print(f'Epoch: {epoch:03d}, Loss: {epoch_loss/len(train_data):.4f}')
     return epoch_loss/len(train_data)
-
-# define test loop
-def test(loader, model, criterion, device='cpu'):
-    return compute_accuracy(loader.dataset, model, criterion, device)
-
 
 def trainer(
     model,
